@@ -1,0 +1,195 @@
+version: "3.9"
+
+x-common-env: &common-env
+  PYTHONPATH: /app/smarttrade-common/src
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  ENV: ${ENV:-local}
+  EVENT_BUS: ${EVENT_BUS:-redis}
+  EVENT_BUS_URL: ${EVENT_BUS_URL:-redis://redis:6379/0}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+  FYERS_APP_ID: ${FYERS_APP_ID}
+  BROKER_RATE_LIMIT_REDIS_URL: ${BROKER_RATE_LIMIT_REDIS_URL:-redis://localhost:6379/2}
+  UV_PROJECT_ENVIRONMENT: ${UV_PROJECT_ENVIRONMENT:-/opt/venv}
+
+services:
+
+  postgres:
+    container_name: postgres
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - smarttrade
+
+  redis:
+    container_name: redis
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+#  cloudflared:
+#    image: cloudflare/cloudflared:latest
+#    container_name: cloudflared
+#    restart: unless-stopped
+#    command: tunnel --no-autoupdate run
+#    environment:
+#      - TUNNEL_TOKEN=eyJhIjoiN2YyNjI3ZTA4MjI4YmMzMmNkZGFjYTdlOWQ1M2MyNjciLCJ0IjoiZTRiYzQyZjMtODFlZS00NmYwLWI5MDItZjEzNjlkN2M5YTk4IiwicyI6Ik9XUmhaVEF6TXpNdE1EazFaQzAwT0RNMkxXSTBNek10TjJNeE9ESTVORFptTW1WbSJ9
+      
+  auth-service:
+    container_name: authentication-service
+    build:
+      context: .
+      dockerfile: authentication-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ./authentication-service:/app/authentication-service:z
+      - ./smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_authentication_service
+      UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
+      UV_LINK_MODE: "copy"                      # suppress hardlink warnings
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      - redis
+      - postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+
+  broker-adapter-service:
+    container_name: broker-adapter-service
+    build:
+      context: .
+      dockerfile: broker-adapter-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ./broker-adapter-service:/app/broker-adapter-service:z
+      - ./smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8005:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 40s
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_broker_adapter_service
+      UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
+      UV_LINK_MODE: "copy"                      # suppress hardlink warnings
+      BROKER_REDIRECT_URI: http://www.smarttrade.asia/
+      FYERS_APP_SECRET: ${FYERS_APP_SECRET}
+      RISK_VALIDATION_ENABLED: true
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      auth-service:
+        condition: service_started
+      market-data-service:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  market-data-service:
+    container_name: market-data-service
+    build:
+      context: .
+      dockerfile: market-data-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ./market-data-service:/app/market-data-service:z
+      - ./smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8004:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_market_data_service
+      BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
+      UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
+      UV_LINK_MODE: "copy"                      # suppress hardlink warnings
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    depends_on:
+      - redis
+      - auth-service
+      - postgres
+#      - cloudflared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  mock-service:
+    container_name: mock-service
+    build:
+      context: .
+      dockerfile: mock-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ./mock-service:/app/mock-service:z
+      - ./smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8002:8000" 
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_mock_service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      market-data-service:
+        condition: service_healthy
+      broker-adapter-service:
+        condition: service_healthy
+    networks:
+      - smarttrade
+
+networks:
+  smarttrade:
+    driver: bridge
+
+volumes:
+  postgres_data:

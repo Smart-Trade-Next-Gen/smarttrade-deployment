@@ -1,0 +1,23 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose
+        run: docker compose config
+
+      - name: Check .env.example completeness
+        run: |
+          if [ ! -f .env.example ]; then
+            echo "Missing .env.example"
+            exit 1
+          fi
+          echo ".env.example present"
