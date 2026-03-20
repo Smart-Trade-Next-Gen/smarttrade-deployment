@@ -26,6 +26,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -60,12 +61,12 @@ services:
   auth-service:
     container_name: authentication-service
     build:
-      context: .
+      context: ..
       dockerfile: authentication-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./authentication-service:/app/authentication-service:z
-      - ./smarttrade-common:/app/smarttrade-common:z
+      - ../authentication-service:/app/authentication-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
     command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8001:8000"
@@ -89,12 +90,12 @@ services:
   broker-adapter-service:
     container_name: broker-adapter-service
     build:
-      context: .
+      context: ..
       dockerfile: broker-adapter-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./broker-adapter-service:/app/broker-adapter-service:z
-      - ./smarttrade-common:/app/smarttrade-common:z
+      - ../broker-adapter-service:/app/broker-adapter-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
     command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8005:8000"
@@ -128,12 +129,12 @@ services:
   market-data-service:
     container_name: market-data-service
     build:
-      context: .
+      context: ..
       dockerfile: market-data-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./market-data-service:/app/market-data-service:z
-      - ./smarttrade-common:/app/smarttrade-common:z
+      - ../market-data-service:/app/market-data-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
     command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8004:8000"
@@ -165,12 +166,12 @@ services:
   mock-service:
     container_name: mock-service
     build:
-      context: .
+      context: ..
       dockerfile: mock-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./mock-service:/app/mock-service:z
-      - ./smarttrade-common:/app/smarttrade-common:z
+      - ../mock-service:/app/mock-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
     command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8002:8000" 
