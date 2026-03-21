@@ -67,7 +67,7 @@ services:
     volumes:
       - ../authentication-service:/app/authentication-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8001:8000"
     environment:
@@ -96,7 +96,7 @@ services:
     volumes:
       - ../broker-adapter-service:/app/broker-adapter-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8005:8000"
     healthcheck:
@@ -135,7 +135,7 @@ services:
     volumes:
       - ../market-data-service:/app/market-data-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8004:8000"
     healthcheck:
@@ -172,7 +172,7 @@ services:
     volumes:
       - ../mock-service:/app/mock-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; pip install -e /app/smarttrade-common --quiet && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8002:8000" 
     environment:
