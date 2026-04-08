@@ -9,9 +9,31 @@ x-common-env: &common-env
   EVENT_BUS_URL: redis://redis:6379/0
   ACCESS_TOKEN_EXPIRE_MINUTES: 1440 # 24 hours
   FYERS_APP_ID: PVH3PJ8L0D-100
+  FYERS_ACCESS_TOKEN: dummy_token_for_testing_e2e
   BROKER_RATE_LIMIT_REDIS_URL: redis://localhost:6379/2
 
 services:
+  postgres:
+    container_name: postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /tmp/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -d postgres -c 'SELECT 1' > /dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - smarttrade
+
   redis:
     container_name: redis
     image: redis:7
@@ -24,7 +46,6 @@ services:
       retries: 20
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    network_mode: bridge
     networks:
       - smarttrade
 
@@ -39,35 +60,37 @@ services:
   auth-service:
     container_name: authentication-service
     build:
-      context: .
+      context: ..
       dockerfile: authentication-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./authentication-service:/app/authentication-service
-      - ./smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run alembic upgrade head && uv run uvicorn authentication_service.main:app  --host 0.0.0.0 --port 8000 --reload"
+      - ../authentication-service:/app/authentication-service
+      - ../smarttrade-common:/app/smarttrade-common
+    command: bash -c "uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8001:8000"
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:15432/smarttrade_authentication_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_authentication_service
       UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
       UV_LINK_MODE: "copy"                      # suppress hardlink warnings
     dns:
       - 8.8.8.8
       - 1.1.1.1
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    network_mode: bridge
     networks:
       - smarttrade
 
   # user-setting-service:
   #   container_name: user-setting-service
   #   build:
-  #     context: .
+  #     context: ..
   #     dockerfile: user-setting-service/Dockerfile
   #     target: runtime-dev
   #   volumes:
@@ -95,7 +118,7 @@ services:
   # broker-config-service:
   #   container_name: broker-config-service
   #   build:
-  #     context: .
+  #     context: ..
   #     dockerfile: broker-config-service/Dockerfile
   #     target: runtime-dev
   #   volumes:
@@ -123,7 +146,7 @@ services:
 #   broker-auth-service:
 #     container_name: broker-auth-service
 #     build:
-#       context: .
+#       context: ..
 #       dockerfile: broker-auth-service/Dockerfile
 #       target: runtime-dev
 #     volumes:
@@ -158,13 +181,13 @@ services:
   broker-adapter-service:
     container_name: broker-adapter-service
     build:
-      context: .
+      context: ..
       dockerfile: broker-adapter-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./broker-adapter-service:/app/broker-adapter-service
-      - ./smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run alembic upgrade head && uv run uvicorn broker_adapter_service.main:app  --host 0.0.0.0 --port 8000 --reload"
+      - ../broker-adapter-service:/app/broker-adapter-service
+      - ../smarttrade-common:/app/smarttrade-common
+    command: bash -c "uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8005:8000"
     healthcheck:
@@ -185,26 +208,27 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     depends_on:
+      postgres:
+        condition: service_healthy
       auth-service:
         condition: service_started
       market-data-service:
-        condition: service_healthy
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    network_mode: bridge    
     networks:
       - smarttrade
 
   market-data-service:
     container_name: market-data-service
     build:
-      context: .
+      context: ..
       dockerfile: market-data-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./market-data-service:/app/market-data-service
-      - ./smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run alembic upgrade head && uv run uvicorn market_data_service.main:app  --host 0.0.0.0 --port 8000 --reload"
+      - ../market-data-service:/app/market-data-service
+      - ../smarttrade-common:/app/smarttrade-common
+    command: bash -c "uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8004:8000"
     healthcheck:
@@ -223,41 +247,47 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     depends_on:
-      - redis
-      - auth-service
-#      - cloudflared
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    network_mode: bridge    
     networks:
       - smarttrade
 
   mock-service:
     container_name: mock-service
     build:
-      context: .
+      context: ..
       dockerfile: mock-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ./mock-service:/app/mock-service
-      - ./smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run alembic upgrade head && uv run uvicorn mock_service.main:app  --host 0.0.0.0 --port 8000 --reload"
+      - ../mock-service:/app/mock-service
+      - ../smarttrade-common:/app/smarttrade-common
+    command: bash -c "uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
     ports:
-      - "8002:8000" 
+      - "8002:8000"
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:15432/smarttrade_mock_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_mock_service
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      postgres:
+        condition: service_healthy
       market-data-service:
-        condition: service_healthy
+        condition: service_started
       broker-adapter-service:
-        condition: service_healthy
-    network_mode: bridge
+        condition: service_started
     networks:
       - smarttrade
 
 networks:
   smarttrade:
     driver: bridge
+
+volumes:
+  postgres_data:
