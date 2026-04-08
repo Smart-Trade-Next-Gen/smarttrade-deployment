@@ -22,7 +22,7 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - /tmp/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+      # - /tmp/init-databases.sql:/docker-entrypoint-initdb.d/init.sql  # Workaround: create DBs manually
     ports:
       - "5432:5432"
     healthcheck:
@@ -30,7 +30,7 @@ services:
       interval: 3s
       timeout: 5s
       retries: 30
-      start_period: 10s
+      start_period: 60s
     networks:
       - smarttrade
 
@@ -66,7 +66,7 @@ services:
     volumes:
       - ../authentication-service:/app/authentication-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "uv sync && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8001:8000"
     environment:
@@ -187,7 +187,7 @@ services:
     volumes:
       - ../broker-adapter-service:/app/broker-adapter-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "uv sync && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8005:8000"
     healthcheck:
@@ -228,7 +228,7 @@ services:
     volumes:
       - ../market-data-service:/app/market-data-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "uv sync && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8004:8000"
     healthcheck:
@@ -267,7 +267,7 @@ services:
     volumes:
       - ../mock-service:/app/mock-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "uv sync && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8002:8000"
     environment:
