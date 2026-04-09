@@ -9,8 +9,11 @@ x-common-env: &common-env
   EVENT_BUS_URL: redis://redis:6379/0
   ACCESS_TOKEN_EXPIRE_MINUTES: 1440 # 24 hours
   FYERS_APP_ID: PVH3PJ8L0D-100
-  FYERS_ACCESS_TOKEN: dummy_token_for_testing_e2e
-  BROKER_RATE_LIMIT_REDIS_URL: redis://localhost:6379/2
+  FYERS_MDS_APP_ID: PVH3PJ8L0D-100
+  FYERS_MDS_ACCESS_TOKEN: dummy_token_for_testing_e2e
+  FYERS_MDS_APP_SECRET: FM7DZKQPZE
+  BROKER_RATE_LIMIT_REDIS_URL: redis://redis:6379/2
+  TOKEN_STORAGE_REDIS_URL: redis://redis:6379/3
 
 services:
   postgres:

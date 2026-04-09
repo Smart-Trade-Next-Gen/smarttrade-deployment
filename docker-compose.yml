@@ -114,6 +114,7 @@ services:
       BROKER_REDIRECT_URI: http://www.smarttrade.asia/
       FYERS_APP_SECRET: ${FYERS_APP_SECRET}
       RISK_VALIDATION_ENABLED: true
+      USE_OUTBOX_PATTERN: false
     dns:
       - 8.8.8.8
       - 1.1.1.1
