@@ -1,7 +1,7 @@
 version: "3.9"
 
 x-common-env: &common-env
-  JWT_SECRET_KEY: jIjETudRTwtHBE_Ez5uU_NeMvi_6zXrst8E3YmdgVxFz7D2Ij6c1rwVF_T9R_HMC
+  JWT_SECRET_KEY: 247ede858cd1b034a2c8594452088c660b5a63b8cc89944ad3fe802ac7f2ae30
   TOKEN_ENCRYPTION_KEY: Q5ROcUeJwBF7gQ9myRw--K-1NNAl5BbX87ixVoDbv9c=
   LOG_LEVEL: INFO
   ENV: local
@@ -22,7 +22,6 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # - /tmp/init-databases.sql:/docker-entrypoint-initdb.d/init.sql  # Workaround: create DBs manually
     ports:
       - "5432:5432"
     healthcheck:
@@ -66,7 +65,7 @@ services:
     volumes:
       - ../authentication-service:/app/authentication-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv sync && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn authentication_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8001:8000"
     environment:
@@ -187,7 +186,7 @@ services:
     volumes:
       - ../broker-adapter-service:/app/broker-adapter-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv sync && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn broker_adapter_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8005:8000"
     healthcheck:
@@ -198,7 +197,7 @@ services:
       start_period: 40s
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:15432/smarttrade_broker_adapter_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_broker_adapter_service
       UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
       UV_LINK_MODE: "copy"                      # suppress hardlink warnings
       BROKER_REDIRECT_URI: http://www.smarttrade.asia/
@@ -228,7 +227,7 @@ services:
     volumes:
       - ../market-data-service:/app/market-data-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv sync && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn market_data_service.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8004:8000"
     healthcheck:
@@ -239,7 +238,7 @@ services:
       start_period: 30s
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:15432/smarttrade_market_data_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_market_data_service
       BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
       UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
       UV_LINK_MODE: "copy"                      # suppress hardlink warnings
@@ -267,7 +266,7 @@ services:
     volumes:
       - ../mock-service:/app/mock-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "uv sync && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8002:8000"
     environment:
