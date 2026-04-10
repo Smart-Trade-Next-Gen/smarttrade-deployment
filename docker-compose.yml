@@ -169,10 +169,10 @@ services:
     container_name: paper-broker-service
     build:
       context: ..
-      dockerfile: paper-broker-service/Dockerfile
+      dockerfile: mock-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ../paper-broker-service:/app/paper-broker-service:z
+      - ../mock-service:/app/mock-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
     command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn paper_broker_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
