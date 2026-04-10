@@ -109,6 +109,7 @@ services:
     environment:
       <<: *common-env
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_broker_adapter_service
+      PAPER_BROKER_SERVICE_URL: http://paper-broker-service:8000
       UV_INDEX_URL: "https://pypi.org/simple"   # fallback mirror
       UV_LINK_MODE: "copy"                      # suppress hardlink warnings
       BROKER_REDIRECT_URI: http://www.smarttrade.asia/
