@@ -165,16 +165,16 @@ services:
     networks:
       - smarttrade
 
-  mock-service:
-    container_name: mock-service
+  paper-broker-service:
+    container_name: paper-broker-service
     build:
       context: ..
-      dockerfile: mock-service/Dockerfile
+      dockerfile: paper-broker-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ../mock-service:/app/mock-service:z
+      - ../paper-broker-service:/app/paper-broker-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn paper_broker_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8002:8000"
     healthcheck:
@@ -185,7 +185,7 @@ services:
       start_period: 30s
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_mock_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_paper_broker_service
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

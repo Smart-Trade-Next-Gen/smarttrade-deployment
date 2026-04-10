@@ -260,21 +260,21 @@ services:
     networks:
       - smarttrade
 
-  mock-service:
-    container_name: mock-service
+  paper-broker-service:
+    container_name: paper-broker-service
     build:
       context: ..
-      dockerfile: mock-service/Dockerfile
+      dockerfile: paper-broker-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ../mock-service:/app/mock-service
+      - ../paper-broker-service:/app/paper-broker-service
       - ../smarttrade-common:/app/smarttrade-common
-    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn mock_service.main:app --host 0.0.0.0 --port 8000"
+    command: bash -c "pip uninstall -y smarttrade-common 2>/dev/null; uv sync && pip install -e /app/smarttrade-common 2>/dev/null && uv run uvicorn paper_broker_service.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8002:8000"
     environment:
       <<: *common-env
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_mock_service
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_paper_broker_service
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
