@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "connections": [
+    {
+      "id": "event-bus-db0",
+      "alias": "Event Bus (DB 0)",
+      "host": "redis",
+      "port": 6379,
+      "db": 0,
+      "name": "Event Bus (DB 0) - Market quotes, strategy decisions, order events"
+    },
+    {
+      "id": "rate-limit-db2",
+      "alias": "Rate Limit (DB 2)",
+      "host": "redis",
+      "port": 6379,
+      "db": 2,
+      "name": "Rate Limit (DB 2) - Broker rate limiting tracking"
+    },
+    {
+      "id": "token-storage-db3",
+      "alias": "Token Storage (DB 3)",
+      "host": "redis",
+      "port": 6379,
+      "db": 3,
+      "name": "Token Storage (DB 3) - OAuth/session tokens"
+    }
+  ]
+}

@@ -114,7 +114,7 @@ docker-compose ps
 ## Troubleshooting
 
 ### PostgreSQL Connection Timeout
-**Symptom:** Tests fail with "Could not connect to database on 15432"
+**Symptom:** Tests fail with "Could not connect to database on 5432"
 
 **Solution:** Ensure `.env` has correct credentials and PostgreSQL is healthy:
 ```bash
