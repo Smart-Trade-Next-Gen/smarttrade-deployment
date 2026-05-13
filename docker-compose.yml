@@ -15,7 +15,6 @@ x-common-env: &common-env
   TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   ENV: ${ENV:-local}
-  EVENT_BUS: ${EVENT_BUS:-redis}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
   FYERS_APP_ID: ${FYERS_APP_ID}
@@ -23,6 +22,7 @@ x-common-env: &common-env
   UV_PROJECT_ENVIRONMENT: ${UV_PROJECT_ENVIRONMENT:-/opt/venv}
   UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
   UV_LINK_MODE: ${UV_LINK_MODE:-copy}
+  PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-false}
 
 services:
 
@@ -244,8 +244,8 @@ services:
         condition: service_started
       market-data-service:
         condition: service_healthy
-      user-setting-service:
-        condition: service_healthy
+      # user-setting-service:
+      #   condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -337,49 +337,51 @@ services:
     networks:
       - smarttrade
 
-  # ──────────────────────────────────────────────────────────────────────
-  # User Settings Service (Port 8009)
-  # ──────────────────────────────────────────────────────────────────────
-  user-setting-service:
-    container_name: user-setting-service
-    build:
-      context: ..
-      dockerfile: user-setting-service/Dockerfile
-      target: runtime-dev
-    volumes:
-      - ../user-setting-service:/app/user-setting-service:z
-      - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn user_setting_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
-    ports:
-      - "8009:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
-    environment:
-      <<: *common-env
-      SERVICE_NAME: user-setting-service
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_user_setting_service
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - smarttrade
+  # # ──────────────────────────────────────────────────────────────────────
+  # # User Settings Service (Port 8009)
+  # # ──────────────────────────────────────────────────────────────────────
+  # user-setting-service:
+  #   container_name: user-setting-service
+  #   build:
+  #     context: ..
+  #     dockerfile: user-setting-service/Dockerfile
+  #     target: runtime-dev
+  #   volumes:
+  #     - ../user-setting-service:/app/user-setting-service:z
+  #     - ../smarttrade-common:/app/smarttrade-common:z
+  #   command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn user_setting_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+  #   ports:
+  #     - "8009:8000"
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+  #     start_period: 30s
+  #   environment:
+  #     <<: *common-env
+  #     SERVICE_NAME: user-setting-service
+  #     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_user_setting_service
+  #   dns:
+  #     - 8.8.8.8
+  #     - 1.1.1.1
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     auth-service:
+  #       condition: service_started
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   networks:
+  #     - smarttrade
 
   # ──────────────────────────────────────────────────────────────────────
   # Portfolio Service (Port 8008)
   # ──────────────────────────────────────────────────────────────────────
+  # Refactored to be a read-only consumer of position/holding snapshot events
+  # Only depends on postgres (for persistence) and redis (for event bus)
   portfolio-service:
     container_name: portfolio-service
     build:
@@ -389,7 +391,7 @@ services:
     volumes:
       - ../portfolio-service:/app/portfolio-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn portfolio_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && uv run alembic upgrade head && uv run uvicorn portfolio_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8008:8000"
     healthcheck:
@@ -397,13 +399,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 30s
+      start_period: 60s  # Increased for event bus initialization
     environment:
       <<: *common-env
       SERVICE_NAME: portfolio-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_portfolio_service
-      MARKET_DATA_SERVICE_URL: ${MARKET_DATA_SERVICE_URL:-http://market-data-service:8000}
-      BROKER_ADAPTER_SERVICE_URL: ${BROKER_ADAPTER_SERVICE_URL:-http://broker-adapter-service:8000}
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -411,12 +411,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      market-data-service:
-        condition: service_healthy
-      auth-service:
-        condition: service_started
-      broker-adapter-service:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
