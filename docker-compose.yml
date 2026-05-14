@@ -108,9 +108,6 @@ services:
     environment:
       <<: *common-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_authentication_service
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,9 +146,6 @@ services:
       BROKER_ADAPTER_SERVICE_URL: ${BROKER_ADAPTER_SERVICE_URL:-http://broker-adapter-service:8000}
       PAPER_BROKER_SERVICE_URL: http://paper-broker-service:8000
       PAPER_BROKER_SERVICE_WEBSOCKET_URL: ws://paper-broker-service:8000
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -234,9 +228,6 @@ services:
       FYERS_APP_SECRET: ${FYERS_APP_SECRET}
       RISK_VALIDATION_ENABLED: ${RISK_VALIDATION_ENABLED:-true}
       USE_OUTBOX_PATTERN: false
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -277,9 +268,7 @@ services:
       SERVICE_NAME: strategy-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_strategy_service
       MARKET_DATA_SERVICE_URL: ${MARKET_DATA_SERVICE_URL:-http://market-data-service:8000}
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -320,9 +309,7 @@ services:
       SERVICE_NAME: journal-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_journal_service
       MARKET_DATA_SERVICE_URL: ${MARKET_DATA_SERVICE_URL:-http://market-data-service:8000}
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -404,14 +391,50 @@ services:
       <<: *common-env
       SERVICE_NAME: portfolio-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_portfolio_service
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Notification Service (Port 8011)
+  # ──────────────────────────────────────────────────────────────────────
+  notification-service:
+    container_name: notification-service
+    build:
+      context: ..
+      dockerfile: notification-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ../notification-service:/app/notification-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn notification_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8011:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    environment:
+      <<: *common-env
+      SERVICE_NAME: notification-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_notification_service
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
