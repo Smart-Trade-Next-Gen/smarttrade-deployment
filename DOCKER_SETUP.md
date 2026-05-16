@@ -1,196 +1,135 @@
 # Docker Compose Setup — SmartTrade
 
-**Status:** ✅ Consolidated into single `docker-compose.yml`
+Single `docker-compose.yml` brings up the full backend stack for local
+development and testing.
 
-## Overview
+## Stack
 
-SmartTrade uses Docker Compose for local development and testing with 6 services:
-- **PostgreSQL** (5432) — Shared database for all services
-- **Redis** (6379) — Event bus and rate limiting
-- **Authentication Service** (8001)
-- **Market Data Service** (8004)
-- **Paper Broker Service** (8002)
-- **Broker Adapter Service** (8005)
+Infrastructure:
+- **PostgreSQL** (5432) — shared database server (per-service databases)
+- **Redis** (6379) — event bus, KV snapshots, rate limiting, token storage
+- **RedisInsight** (host 8010 → container 5540) — Redis UI
 
-## Quick Start
+Services (host : container port `8000` in every container):
+- Authentication Service (8001)
+- Paper Broker Service / PBS (8002)
+- Market Data Service / MDS (8004)
+- Broker Adapter Service / BAS (8005)
+- Strategy Service (8006)
+- Journal Service (8007)
+- Portfolio Service (8008)
+- Notification Service (8011)
 
-### Prerequisites
-```bash
-# Ensure Docker and Docker Compose are installed
-docker --version
-docker-compose --version
-```
+## Quick start
 
-### Start All Services
 ```bash
 cd smarttrade-deployment
+cp .env.example .env             # fill in JWT/TOKEN/FYERS secrets
 
-# Configure environment (if not already done)
-cp .env.example .env  # Update credentials if needed
-
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Check health
-docker-compose ps
+docker compose up -d
+docker compose ps                # check health
+docker compose logs -f           # follow logs
 ```
 
-### Stop All Services
+To stop:
+
 ```bash
-docker-compose down
-
-# Remove data volumes (⚠️ WARNING: loses all data)
-docker-compose down -v
+docker compose down              # keep volumes
+docker compose down -v           # wipe data (irreversible)
 ```
-
-## Service Ports
-
-| Service | Port | URL |
-|---------|------|-----|
-| Auth Service | 8001 | http://localhost:8001 |
-| Paper Broker | 8002 | http://localhost:8002 |
-| Market Data | 8004 | http://localhost:8004 |
-| Broker Adapter | 8005 | http://localhost:8005 |
-| PostgreSQL | 5432 | `postgres://postgres@localhost:5432` |
-| Redis | 6379 | `redis://localhost:6379` |
 
 ## Configuration
 
-### Environment Variables
-All services use variables from `.env` file:
+All services read variables from the project-root `.env`. Key vars
+(see `.env.example` for the full template):
 
-```env
-# Authentication
+```ini
+# Auth
 JWT_SECRET_KEY=<32-byte-key>
 TOKEN_ENCRYPTION_KEY=<32-byte-key>
 
-# Broker Configuration
+# Broker
 FYERS_APP_ID=<app-id>
 FYERS_APP_SECRET=<app-secret>
 
-# Database
+# Infra
+REDIS_URL=redis://redis:6379/0
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 
-# Logging & Environment
+# Env
 LOG_LEVEL=INFO
 ENV=local
 ```
 
-See `.env.example` for complete reference.
+## Databases
 
-### Database URLs
+Each service owns its own Postgres database. `init-db.sh` creates them on
+first boot:
 
-Services automatically connect to PostgreSQL using:
+- `smarttrade_authentication_service`
+- `smarttrade_paper_broker_service`
+- `smarttrade_market_data_service`
+- `smarttrade_broker_adapter_service`
+- `smarttrade_strategy_service`
+- `smarttrade_journal_service`
+- `smarttrade_portfolio_service`
+- `smarttrade_notification_service`
+
+Service URL pattern (compose-internal DNS):
+
 ```
 postgresql+asyncpg://postgres:postgres@postgres:5432/smarttrade_<service>
 ```
 
-Each service has its own database:
-- `smarttrade_authentication_service`
-- `smarttrade_broker_adapter_service`
-- `smarttrade_market_data_service`
-- `smarttrade_paper_broker_service`
+Alembic migrations run automatically during each service's lifespan
+startup. To run manually:
 
-See `init-db.sh` for database initialization.
-
-### Health Checks
-
-All services have built-in health checks:
 ```bash
-# Check service health
-docker-compose ps
+docker compose exec broker-adapter-service uv run alembic upgrade head
+```
 
-# Example output:
-# postgres               "postgres"           Up 2m (healthy)
-# redis                  "redis-server ..."   Up 2m (healthy)
-# auth-service           "bash -c ..."        Up 2m
-# broker-adapter-service "bash -c ..."        Up 2m (healthy)
+## Service start order
+
+`depends_on` + healthchecks in `docker-compose.yml` enforce:
+
+1. **postgres**, **redis** (infrastructure)
+2. **auth-service**
+3. **market-data-service**
+4. **paper-broker-service**
+5. **broker-adapter-service**
+6. **strategy-service**, **journal-service**, **portfolio-service**,
+   **notification-service**
+
+## Health checks
+
+All services expose `/` (liveness) and `/ready` (readiness) probes. Compose
+healthchecks hit `/ready` over the container-internal port 8000.
+
+```bash
+docker compose ps
 ```
 
 ## Troubleshooting
 
-### PostgreSQL Connection Timeout
-**Symptom:** Tests fail with "Could not connect to database on 5432"
-
-**Solution:** Ensure `.env` has correct credentials and PostgreSQL is healthy:
+**Postgres connection refused**
 ```bash
-docker-compose logs postgres
-docker-compose exec postgres pg_isready -U postgres
+docker compose logs postgres
+docker compose exec postgres pg_isready -U postgres
 ```
 
-### Service Startup Order
-Services depend on each other in this order:
-1. **postgres** & **redis** (infrastructure)
-2. **auth-service** (requires postgres + redis)
-3. **market-data-service** (requires postgres, redis, auth)
-4. **paper-broker-service** (requires postgres, market-data)
-5. **broker-adapter-service** (requires all above)
-
-### Port Conflicts
-If services fail to start with "port already in use":
+**Port conflict on host**
 ```bash
-# Find process using port
-lsof -i :5432  # PostgreSQL
-lsof -i :6379  # Redis
-lsof -i :8005  # Broker Adapter
-
-# Kill and restart
-docker-compose restart
+lsof -i :8005    # find process; either stop it or change the host port in compose
 ```
 
-### Database Migrations
-Migrations run automatically on service startup. If needed manually:
-```bash
-docker-compose exec broker-adapter-service \
-  uv run alembic upgrade head
-```
+**Migrations didn't apply**
+- Check the failing service's logs — Alembic prints to stdout during startup.
+- Run manually with `docker compose exec <service> uv run alembic upgrade head`.
 
-## Testing
+## See also
 
-### Unit Tests (No Docker Required)
-Unit tests use in-memory SQLite to avoid database timeouts:
-```bash
-cd broker-adapter-service
-python -m pytest tests/unit -v
-```
-
-### Integration Tests (Docker Required)
-Integration tests use PostgreSQL in Docker:
-```bash
-# Ensure docker-compose is running
-docker-compose up -d
-
-cd broker-adapter-service
-python -m pytest tests/integration -v
-```
-
-### E2E Tests (Full Docker Stack Required)
-End-to-end tests require all services:
-```bash
-docker-compose up -d
-python -m pytest tests/e2e -v
-```
-
-## History
-
-**Previously:** Two docker-compose files caused confusion
-- `docker-compose.yml` (parametrized, production-style)
-- `docker-compose.local.yml` (hardcoded, for local testing)
-
-**Now:** Single consolidated `docker-compose.yml` with:
-- ✅ Environment variable support
-- ✅ Proper health checks
-- ✅ PostgreSQL on standard port 5432
-- ✅ Clear service documentation
-- ✅ Works for local dev, testing, and production
-
-## See Also
-
-- `Dockerfile` — Individual service container definitions
-- `.env.example` — Environment variable template
-- `init-db.sh` — Database initialization script
-- `MIGRATIONS.md` — Database migration guide
+- `README.md` — service / port map and Redis layout.
+- `SECRETS_SETUP.md` — generating JWT / token-encryption keys.
+- `REDISINSIGHT_SETUP.md` — Redis UI walkthrough.
+- `init-db.sh` — per-service database creation.
