@@ -248,46 +248,48 @@ services:
       - smarttrade
 
   # ──────────────────────────────────────────────────────────────────────
-  # Strategy Service (Port 8006)
+  # Strategy Service (Port 8006) — DISABLED
+  # Strategy service is not currently supported. Re-enable when
+  # strategy.decision.v1 schema is registered and the runner is ready.
   # ──────────────────────────────────────────────────────────────────────
-  strategy-service:
-    container_name: strategy-service
-    build:
-      context: ..
-      dockerfile: strategy-service/Dockerfile
-      target: runtime-dev
-    volumes:
-      - ../strategy-service:/app/strategy-service:z
-      - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn strategy_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
-    ports:
-      - "8006:8000"
-    tty: true
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
-    environment:
-      <<: *common-env
-      SERVICE_NAME: strategy-service
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_strategy_service
-      MARKET_DATA_SERVICE_URL: ${MARKET_DATA_SERVICE_URL:-http://market-data-service:8000}
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      market-data-service:
-        condition: service_healthy
-      auth-service:
-        condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - smarttrade
+  # strategy-service:
+  #   container_name: strategy-service
+  #   build:
+  #     context: ..
+  #     dockerfile: strategy-service/Dockerfile
+  #     target: runtime-dev
+  #   volumes:
+  #     - ../strategy-service:/app/strategy-service:z
+  #     - ../smarttrade-common:/app/smarttrade-common:z
+  #   command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn strategy_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+  #   ports:
+  #     - "8006:8000"
+  #   tty: true
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+  #     start_period: 30s
+  #   environment:
+  #     <<: *common-env
+  #     SERVICE_NAME: strategy-service
+  #     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_strategy_service
+  #     MARKET_DATA_SERVICE_URL: ${MARKET_DATA_SERVICE_URL:-http://market-data-service:8000}
+  #
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     market-data-service:
+  #       condition: service_healthy
+  #     auth-service:
+  #       condition: service_started
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   networks:
+  #     - smarttrade
 
   # ──────────────────────────────────────────────────────────────────────
   # Journal Service (Port 8007)
