@@ -250,7 +250,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────
   # Strategy Service (Port 8006) — DISABLED
   # Strategy service is not currently supported. Re-enable when
-  # strategy.decision.v1 schema is registered and the runner is ready.
+  # strategy.decision schema is registered and the runner is ready.
   # ──────────────────────────────────────────────────────────────────────
   # strategy-service:
   #   container_name: strategy-service

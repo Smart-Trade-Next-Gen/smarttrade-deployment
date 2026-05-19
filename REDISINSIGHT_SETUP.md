@@ -67,9 +67,9 @@ curl -X POST http://localhost:8010/api/v1/databases \
 
 ### Event Bus (DB 0) - Market Data & Events
 - **Streams**: 
-  - `market.quote.v1` — Live market quotes
-  - `market.instrument.v1` — Instrument metadata updates
-  - `strategy.decision.v1` — Trading signals
+  - `market.quote` — Live market quotes
+  - `market.instrument` — Instrument metadata updates
+  - `strategy.decision` — Trading signals
   - `order.*` — Order events
   - `execution.*` — Execution flow events
   - `instrument.sync.*` — Instrument sync events
@@ -103,19 +103,19 @@ Once you add a database, you can:
 
 ```bash
 # Stream information
-XINFO STREAM market.quote.v1
-XINFO GROUPS market.quote.v1
-XPENDING market.quote.v1 group_name
+XINFO STREAM market.quote
+XINFO GROUPS market.quote
+XPENDING market.quote group_name
 
 # Consumer group details
-XINFO CONSUMERS market.quote.v1 group_name
+XINFO CONSUMERS market.quote group_name
 
 # Stream length
-XLEN market.quote.v1
+XLEN market.quote
 
 # View recent messages
-XRANGE market.quote.v1 - +
-XREAD STREAMS market.quote.v1 0-0
+XRANGE market.quote - +
+XREAD STREAMS market.quote 0-0
 
 # Check key patterns
 KEYS *
