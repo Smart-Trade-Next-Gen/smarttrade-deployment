@@ -472,12 +472,33 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8000
       BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      PAPER_BROKER_SERVICE_URL: http://paper-broker-service:8000
+      JOURNAL_SERVICE_URL: http://journal-service:8000
+      PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      VITE_AUTH_SERVICE_URL: http://auth-service:8000
+      VITE_BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
+      VITE_MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      VITE_PAPER_BROKER_SERVICE_URL: http://paper-broker-service:8000
+      VITE_JOURNAL_SERVICE_URL: http://journal-service:8000
+      VITE_PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
+      VITE_NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      VITE_MDS_WS_URL: ws://market-data-service:8000
+      VITE_NOTIFICATION_WS_URL: ws://notification-service:8000
     depends_on:
       auth-service:
         condition: service_started
       broker-adapter-service:
         condition: service_started
       market-data-service:
+        condition: service_started
+      paper-broker-service:
+        condition: service_started
+      journal-service:
+        condition: service_started
+      portfolio-service:
+        condition: service_started
+      notification-service:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
