@@ -24,6 +24,7 @@ x-common-env: &common-env
   UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
   UV_LINK_MODE: ${UV_LINK_MODE:-copy}
   PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-false}
+  FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
 
 services:
 
@@ -445,6 +446,38 @@ services:
       redis:
         condition: service_healthy
       auth-service:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
+  # UI Service (Port 3000)
+  # ──────────────────────────────────────────────────────────────────────
+  ui-service:
+    container_name: ui-service
+    build:
+      context: ../smarttrade-frontend
+      dockerfile: Dockerfile
+      target: runtime-dev
+    volumes:
+      - ../smarttrade-frontend:/app:z
+      - /app/node_modules
+    ports:
+      - "3000:5173"
+    tty: true
+    environment:
+      NODE_ENV: development
+      AUTH_SERVICE_URL: http://auth-service:8000
+      BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
+      MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+    depends_on:
+      auth-service:
+        condition: service_started
+      broker-adapter-service:
+        condition: service_started
+      market-data-service:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
