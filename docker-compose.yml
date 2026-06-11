@@ -378,6 +378,51 @@ services:
   #     - smarttrade
 
   # ──────────────────────────────────────────────────────────────────────
+  # AI Market Intelligence Service (Port 8014)
+  # ──────────────────────────────────────────────────────────────────────
+  ai-service:
+    container_name: ai-service
+    build:
+      context: ..
+      dockerfile: ai-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ../ai-service:/app/ai-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn ai_market_intelligence_service.main:app --host 0.0.0.0 --port 8014 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    ports:
+      - "8014:8014"
+    tty: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    environment:
+      <<: *common-env
+      SERVICE_NAME: ai-market-intelligence-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_market_intelligence
+      MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      ENABLE_HISTORICAL_BACKFILL: "true"
+      ENABLE_HISTORICAL_REPLAY: "true"
+      ENABLE_OUTCOME_GENERATION: "true"
+      ENABLE_INTELLIGENCE_POPULATION: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      market-data-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
   # Portfolio Service (Port 8008)
   # ──────────────────────────────────────────────────────────────────────
   # Refactored to be a read-only consumer of position/holding snapshot events
@@ -479,6 +524,7 @@ services:
       JOURNAL_SERVICE_URL: http://journal-service:8000
       PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      AI_SERVICE_URL: http://ai-service:8014
       VITE_AUTH_SERVICE_URL: http://auth-service:8000
       VITE_BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
       VITE_MARKET_DATA_SERVICE_URL: http://market-data-service:8000
@@ -486,6 +532,7 @@ services:
       VITE_JOURNAL_SERVICE_URL: http://journal-service:8000
       VITE_PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
       VITE_NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      VITE_AI_SERVICE_URL: http://ai-service:8014
       VITE_MDS_WS_URL: ws://market-data-service:8000
       VITE_NOTIFICATION_WS_URL: ws://notification-service:8000
     depends_on:
