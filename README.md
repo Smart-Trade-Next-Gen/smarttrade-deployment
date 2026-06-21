@@ -40,12 +40,14 @@ docker compose up -d
 | Journal Service | 8007 | 8000 |
 | Portfolio Service | 8008 | 8000 |
 | Notification Service | 8011 | 8000 |
+| AMIS Core Service | 8000 | 8000 |
+| AMIS Lab Service | 8016 | 8000 |
 | Frontend (dev) | 5173 | — |
 
 ## Service start order
 
 Postgres → Redis → Auth → MDS → PBS → BAS → Strategy → Journal → Portfolio
-→ Notification → Frontend.
+→ Notification → AMIS Core → AMIS Lab → Frontend.
 
 Compose `depends_on` + healthchecks enforce the ordering.
 

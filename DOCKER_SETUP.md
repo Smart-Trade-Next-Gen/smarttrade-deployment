@@ -100,6 +100,8 @@ docker compose exec broker-adapter-service uv run alembic upgrade head
 5. **broker-adapter-service**
 6. **strategy-service**, **journal-service**, **portfolio-service**,
    **notification-service**
+7. **amis-core-service**
+8. **amis-lab-service** (depends on amis-core-service)
 
 ## Health checks
 
