@@ -19,6 +19,7 @@ Services (host : container port `8000` in every container):
 - Journal Service (8007)
 - Portfolio Service (8008)
 - Notification Service (8011)
+- AI Scoring Service (8017)
 
 ## Quick start
 
@@ -75,6 +76,7 @@ first boot:
 - `smarttrade_journal_service`
 - `smarttrade_portfolio_service`
 - `smarttrade_notification_service`
+- `smarttrade_ai_scoring_service`
 
 Service URL pattern (compose-internal DNS):
 
@@ -100,8 +102,7 @@ docker compose exec broker-adapter-service uv run alembic upgrade head
 5. **broker-adapter-service**
 6. **strategy-service**, **journal-service**, **portfolio-service**,
    **notification-service**
-7. **amis-core-service**
-8. **amis-lab-service** (depends on amis-core-service)
+7. **ai-scoring-service** (depends on market-data-service)
 
 ## Health checks
 

@@ -416,20 +416,23 @@ services:
   #     - smarttrade
 
   # ──────────────────────────────────────────────────────────────────────
-  # AMIS Core Service (Port 8000)
+  # AI Scoring Service (Port 8017)
   # ──────────────────────────────────────────────────────────────────────
-  amis-core-service:
-    container_name: amis-core-service
+  # Deterministic company scoring (fundamental/technical/risk/composite).
+  # Reads fundamentals + technical features from MDS REST; publishes
+  # scoring.company.scored events.
+  ai-scoring-service:
+    container_name: ai-scoring-service
     build:
       context: ..
-      dockerfile: smarttrade-amis-core/Dockerfile
+      dockerfile: ai-scoring-service/Dockerfile
       target: runtime-dev
     volumes:
-      - ../smarttrade-amis-core:/app/smarttrade-amis-core:z
+      - ../ai-scoring-service:/app/ai-scoring-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn amis_core.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
+    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn ai_scoring_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
-      - "8000:8000"
+      - "8017:8000"
     tty: true
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
@@ -439,8 +442,13 @@ services:
       start_period: 30s
     environment:
       <<: *common-env
-      SERVICE_NAME: amis-core-service
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_amis_core
+      SERVICE_NAME: ai-scoring-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_scoring_service
+      MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
+      SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
+      SCORING_BATCH_ENABLED: "false"
+      SCORING_BATCH_INTERVAL_SECONDS: "3600"
     depends_on:
       postgres:
         condition: service_healthy
@@ -448,48 +456,9 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - smarttrade
-
-  # ──────────────────────────────────────────────────────────────────────
-  # AMIS Lab Service (Port 8016)
-  # ──────────────────────────────────────────────────────────────────────
-  amis-lab-service:
-    container_name: amis-lab-service
-    build:
-      context: ..
-      dockerfile: smarttrade-amis-lab/Dockerfile
-      target: runtime-dev
-    volumes:
-      - ../smarttrade-amis-lab:/app/smarttrade-amis-lab:z
-      - ../smarttrade-common:/app/smarttrade-common:z
-    command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn amis_lab.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
-    ports:
-      - "8016:8000"
-    tty: true
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
-    environment:
-      <<: *common-env
-      SERVICE_NAME: amis-lab-service
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_amis_lab
-      AMIS_CORE_URL: http://amis-core-service:8000
-      MDS_BASE_URL: http://market-data-service:8000
-      MDS_BROKER_ID: fyers
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      auth-service:
+      market-data-service:
         condition: service_started
-      amis-core-service:
+      screener-mcp:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -598,8 +567,7 @@ services:
       JOURNAL_SERVICE_URL: http://journal-service:8000
       PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
       NOTIFICATION_SERVICE_URL: http://notification-service:8000
-      AMIS_CORE_SERVICE_URL: http://amis-core-service:8000
-      AMIS_LAB_SERVICE_URL: http://amis-lab-service:8000
+      AI_SCORING_SERVICE_URL: http://ai-scoring-service:8000
       VITE_AUTH_SERVICE_URL: http://auth-service:8000
       VITE_BROKER_ADAPTER_SERVICE_URL: http://broker-adapter-service:8000
       VITE_MARKET_DATA_SERVICE_URL: http://market-data-service:8000
@@ -607,8 +575,7 @@ services:
       VITE_JOURNAL_SERVICE_URL: http://journal-service:8000
       VITE_PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
       VITE_NOTIFICATION_SERVICE_URL: http://notification-service:8000
-      VITE_AMIS_CORE_URL: http://amis-core-service:8000
-      VITE_AMIS_LAB_URL: http://amis-lab-service:8000
+      VITE_AI_SCORING_SERVICE_URL: http://ai-scoring-service:8000
       VITE_MDS_WS_URL: ws://market-data-service:8000
       VITE_NOTIFICATION_WS_URL: ws://notification-service:8000
     depends_on:
@@ -626,9 +593,7 @@ services:
         condition: service_started
       notification-service:
         condition: service_started
-      amis-core-service:
-        condition: service_started
-      amis-lab-service:
+      ai-scoring-service:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
