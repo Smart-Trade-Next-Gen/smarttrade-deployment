@@ -149,6 +149,8 @@ services:
       BROKER_ADAPTER_SERVICE_URL: ${BROKER_ADAPTER_SERVICE_URL:-http://broker-adapter-service:8000}
       PAPER_BROKER_SERVICE_URL: http://paper-broker-service:8000
       PAPER_BROKER_SERVICE_WEBSOCKET_URL: ws://paper-broker-service:8000
+      SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
+      SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,8 +158,44 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_started
+      screener-mcp:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Screener MCP (fundamental-data imports from Screener.in)
+  # Serves MDS over bearer-authed REST (/api/saved-screens/*); the MCP
+  # endpoint is also reachable for external MCP clients.
+  # Requires SCREENER_USERNAME / SCREENER_PASSWORD / MCP_AUTH_TOKEN in .env.
+  # Build context assumes screener-mcp is checked out next to Smart-Trade.
+  # ──────────────────────────────────────────────────────────────────────
+  screener-mcp:
+    container_name: screener-mcp
+    build:
+      context: ../../screener-mcp
+      dockerfile: Dockerfile.core
+    environment:
+      MCP_TRANSPORT: streamable-http
+      MCP_PORT: "8000"
+      # Empty creds leave the server up but its Screener calls answer
+      # login_required; MCP_AUTH_TOKEN unset leaves the API open (dev only).
+      SCREENER_USERNAME: ${SCREENER_USERNAME:-}
+      SCREENER_PASSWORD: ${SCREENER_PASSWORD:-}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      SCREENER_EXPORT_DIR: /exports
+    volumes:
+      - screener-exports:/exports
+    ports:
+      - "8020:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
     networks:
       - smarttrade
 
@@ -605,4 +643,6 @@ volumes:
   postgres_data:
     driver: local
   redis-insight-data:
+    driver: local
+  screener-exports:
     driver: local
