@@ -447,6 +447,10 @@ services:
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
       SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
       SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
+      # Parked-run re-announce sweep: republishes awaiting_analysis for
+      # runs parked > MIN_AGE so lost triggers self-heal
+      RESEARCH_REPUBLISH_INTERVAL_SECONDS: ${RESEARCH_REPUBLISH_INTERVAL_SECONDS:-300}
+      RESEARCH_REPUBLISH_MIN_AGE_SECONDS: ${RESEARCH_REPUBLISH_MIN_AGE_SECONDS:-900}
     depends_on:
       postgres:
         condition: service_healthy
@@ -495,12 +499,15 @@ services:
       RESEARCH_AGENT_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
       RESEARCH_AGENT_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
       RESEARCH_AGENT_TOKEN: ${RESEARCH_AGENT_TOKEN:-}
-      POLL_INTERVAL_SECONDS: ${RESEARCH_AGENT_POLL_SECONDS:-300}
+      RECLAIM_INTERVAL_SECONDS: ${RESEARCH_AGENT_RECLAIM_SECONDS:-300}
       STREAM_BLOCK_MS: ${RESEARCH_AGENT_BLOCK_MS:-30000}
       RUN_TIMEOUT_SECONDS: ${RESEARCH_AGENT_TIMEOUT_SECONDS:-3600}
       RUN_MAX_ATTEMPTS: ${RESEARCH_AGENT_MAX_ATTEMPTS:-2}
+      RUN_RETRY_COOLDOWN_SECONDS: ${RESEARCH_AGENT_RETRY_COOLDOWN_SECONDS:-3600}
+      RUN_MAX_PARALLEL: ${RESEARCH_AGENT_MAX_PARALLEL:-4}
       DEVIN_PERMISSION_MODE: ${DEVIN_PERMISSION_MODE:-dangerous}
-      DEVIN_MODEL: ${DEVIN_MODEL:-}
+      # Effort is encoded in the model name (swe-2-low/-high/-max)
+      DEVIN_MODEL: ${DEVIN_MODEL:-swe-2-high}
       # Devin auth — either set WINDSURF_API_KEY in .env, or run
       # `devin auth login` once on the host (credentials.toml is
       # mounted through ~/.local/share/devin)

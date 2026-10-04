@@ -59,8 +59,10 @@ runs under the `agents` profile:
 docker compose --profile agents up -d research-agent
 ```
 
-It watches `events:scoring.research.awaiting_analysis` (plus a slow
-HTTP backstop poll) and completes each parked research run by spawning
+It watches `events:scoring.research.awaiting_analysis` (Redis-only —
+entries stay pending until the run settles, and a periodic pending
+sweep covers retries/restarts; no HTTP polling) and completes each
+parked research run by spawning
 a headless Devin CLI session that runs the `company-investment-research`
 skill — fetch package → web research → submit `ExternalAnalysisSubmission`
 with an independent agent score. The LLM lives in this agent process,
@@ -84,10 +86,13 @@ Required in `.env`:
 - `DEVIN_EXT_DIR` if the Devin CLI extension dir differs from the
   default mount path.
 
-Tunables: `RESEARCH_AGENT_POLL_SECONDS` (300), `RESEARCH_AGENT_BLOCK_MS`
+Tunables: `RESEARCH_AGENT_RECLAIM_SECONDS` (300), `RESEARCH_AGENT_BLOCK_MS`
 (30000), `RESEARCH_AGENT_TIMEOUT_SECONDS` (3600),
-`RESEARCH_AGENT_MAX_ATTEMPTS` (2), `DEVIN_PERMISSION_MODE` (dangerous —
-required for unattended runs), `DEVIN_MODEL`.
+`RESEARCH_AGENT_MAX_ATTEMPTS` (2), `RESEARCH_AGENT_MAX_PARALLEL` (4 —
+concurrent Devin sessions; N workers multiply credit burn by ~N),
+`DEVIN_PERMISSION_MODE` (dangerous — required for unattended runs),
+`DEVIN_MODEL` (`swe-2-high` — reasoning effort is encoded in the model
+name: `swe-2-low`/`swe-2-high`/`swe-2-max`).
 
 ## Per-service databases
 
