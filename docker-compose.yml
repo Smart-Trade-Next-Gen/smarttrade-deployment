@@ -418,9 +418,9 @@ services:
   # ──────────────────────────────────────────────────────────────────────
   # AI Scoring Service (Port 8017)
   # ──────────────────────────────────────────────────────────────────────
-  # Deterministic company scoring (fundamental/technical/risk/composite).
-  # Reads fundamentals + technical features from MDS REST; publishes
-  # scoring.company.scored events.
+  # Deterministic company research + scoring. Pulls fundamentals,
+  # screener data, and prices from MDS/screener-mcp; publishes
+  # scoring.research.* lifecycle events.
   ai-scoring-service:
     container_name: ai-scoring-service
     build:
@@ -447,8 +447,6 @@ services:
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
       SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
       SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
-      SCORING_BATCH_ENABLED: "false"
-      SCORING_BATCH_INTERVAL_SECONDS: "3600"
     depends_on:
       postgres:
         condition: service_healthy
@@ -462,6 +460,59 @@ services:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Research Agent (opt-in: docker compose --profile agents up)
+  # ──────────────────────────────────────────────────────────────────────
+  # Watches ai-scoring for runs parked at AWAITING_ANALYSIS and completes
+  # each via a headless Devin CLI session running the service-owned
+  # company_research prompt (self-contained — fetched from
+  # /research/agent-prompts at dispatch, no skill-file dependency).
+  # The LLM lives here — never inside the services. Needs
+  # RESEARCH_AGENT_USERNAME/PASSWORD in .env (a dedicated account
+  # recommended) and the host Devin CLI mounted via DEVIN_EXT_DIR.
+  research-agent:
+    container_name: research-agent
+    build:
+      context: ../research-agent
+    profiles: ["agents"]
+    restart: unless-stopped
+    volumes:
+      # Devin CLI binary + its bundled resources (skills/docs share dir)
+      - ${DEVIN_EXT_DIR:-/usr/share/devin-desktop/resources/app/extensions/windsurf/devin}:/opt/devin:ro
+      # Devin auth/session state — reuse the host login (:z = SELinux
+      # shared label, required for writes like the rest of the stack)
+      - ${HOME}/.config/devin:/root/.config/devin:z
+      - ${HOME}/.local/share/devin:/root/.local/share/devin:z
+      # Smart-Trade workspace — read access for agent sessions
+      - ..:/workspace:z
+    environment:
+      AI_SCORING_URL: http://ai-scoring-service:8000
+      AUTH_URL: http://auth-service:8000
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RESEARCH_AGENT_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
+      RESEARCH_AGENT_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
+      RESEARCH_AGENT_TOKEN: ${RESEARCH_AGENT_TOKEN:-}
+      POLL_INTERVAL_SECONDS: ${RESEARCH_AGENT_POLL_SECONDS:-300}
+      STREAM_BLOCK_MS: ${RESEARCH_AGENT_BLOCK_MS:-30000}
+      RUN_TIMEOUT_SECONDS: ${RESEARCH_AGENT_TIMEOUT_SECONDS:-3600}
+      RUN_MAX_ATTEMPTS: ${RESEARCH_AGENT_MAX_ATTEMPTS:-2}
+      DEVIN_PERMISSION_MODE: ${DEVIN_PERMISSION_MODE:-dangerous}
+      DEVIN_MODEL: ${DEVIN_MODEL:-}
+      # Devin auth — either set WINDSURF_API_KEY in .env, or run
+      # `devin auth login` once on the host (credentials.toml is
+      # mounted through ~/.local/share/devin)
+      WINDSURF_API_KEY: ${WINDSURF_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      ai-scoring-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - smarttrade
 
