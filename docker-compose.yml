@@ -445,12 +445,29 @@ services:
       SERVICE_NAME: ai-scoring-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_scoring_service
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
       SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
       SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
+      # Pipeline acting identity: pipeline/batch runs resolve broker
+      # sessions under this account (the user with the live FYERS
+      # connection). Reuses the research-agent credentials; empty →
+      # the API caller's identity is used.
+      ACTING_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
+      ACTING_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
       # Parked-run re-announce sweep: republishes awaiting_analysis for
       # runs parked > MIN_AGE so lost triggers self-heal
       RESEARCH_REPUBLISH_INTERVAL_SECONDS: ${RESEARCH_REPUBLISH_INTERVAL_SECONDS:-300}
       RESEARCH_REPUBLISH_MIN_AGE_SECONDS: ${RESEARCH_REPUBLISH_MIN_AGE_SECONDS:-900}
+      # Periodic watchlist/holdings research — market-hours gated;
+      # caps bound the per-tick spend (each run spawns an agent session)
+      RESEARCH_MONITOR_ENABLED: ${RESEARCH_MONITOR_ENABLED:-true}
+      RESEARCH_MONITOR_INTERVAL_MINUTES: ${RESEARCH_MONITOR_INTERVAL_MINUTES:-60}
+      RESEARCH_MONITOR_WATCHLIST_CAP: ${RESEARCH_MONITOR_WATCHLIST_CAP:-50}
+      RESEARCH_MONITOR_HOLDINGS_CAP: ${RESEARCH_MONITOR_HOLDINGS_CAP:-25}
+      RESEARCH_MONITOR_PRIORITY: ${RESEARCH_MONITOR_PRIORITY:-10}
+      # Comma-separated YYYY-MM-DD NSE holidays (IST) — operator-declared
+      RESEARCH_MONITOR_HOLIDAYS: ${RESEARCH_MONITOR_HOLIDAYS:-}
+      RESEARCH_MONITOR_HOLDING_TYPE: ${RESEARCH_MONITOR_HOLDING_TYPE:-SETTLED}
     depends_on:
       postgres:
         condition: service_healthy
