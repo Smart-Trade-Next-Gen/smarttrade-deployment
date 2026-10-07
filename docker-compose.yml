@@ -430,6 +430,7 @@ services:
     volumes:
       - ../ai-scoring-service:/app/ai-scoring-service:z
       - ../smarttrade-common:/app/smarttrade-common:z
+      - research-staging:/staging/research
     command: bash -c "uv sync --no-dev && (uv run alembic upgrade heads || uv run alembic upgrade head || true) && uv run uvicorn ai_scoring_service.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/smarttrade-common/src --reload-dir ./src"
     ports:
       - "8017:8000"
@@ -468,6 +469,11 @@ services:
       # Comma-separated YYYY-MM-DD NSE holidays (IST) — operator-declared
       RESEARCH_MONITOR_HOLIDAYS: ${RESEARCH_MONITOR_HOLIDAYS:-}
       RESEARCH_MONITOR_HOLDING_TYPE: ${RESEARCH_MONITOR_HOLDING_TYPE:-SETTLED}
+      # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
+      # executor lives in ai-scoring-worker. 'standalone' folds
+      # everything back into this process (single-container dev).
+      RESEARCH_RUNTIME_ROLE: ${RESEARCH_RUNTIME_ROLE:-api}
+      RESEARCH_STAGING_DIR: ${RESEARCH_STAGING_DIR:-/staging/research}
     depends_on:
       postgres:
         condition: service_healthy
@@ -481,6 +487,61 @@ services:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - smarttrade
+
+  # ──────────────────────────────────────────────────────────────────────
+  # AI Scoring data-provider worker
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 1 of the research pipeline: polls QUEUED runs, executes
+  # collection + deterministic analysis, stages the digest package on
+  # the shared research-staging volume, then parks the run at
+  # AWAITING_ANALYSIS so the research-agent only spends LLM time once
+  # all data is already on disk. Also owns the periodic sweeps
+  # (reannounce, stale-claim release, staging janitor). Scale with
+  # `docker compose up --scale ai-scoring-worker=N` — the
+  # QUEUED→COLLECTING compare-and-set makes concurrent workers safe.
+  ai-scoring-worker:
+    container_name: ai-scoring-worker
+    build:
+      context: ..
+      dockerfile: ai-scoring-service/Dockerfile
+      target: runtime-dev
+    volumes:
+      - ../ai-scoring-service:/app/ai-scoring-service:z
+      - ../smarttrade-common:/app/smarttrade-common:z
+      - research-staging:/staging/research
+    command: bash -c "uv sync --no-dev && uv run python -m ai_scoring_service.worker"
+    tty: true
+    environment:
+      <<: *common-env
+      SERVICE_NAME: ai-scoring-worker
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_scoring_service
+      MARKET_DATA_SERVICE_URL: http://market-data-service:8000
+      PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
+      SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
+      SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
+      ACTING_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
+      ACTING_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
+      RESEARCH_RUNTIME_ROLE: worker
+      RESEARCH_MAX_CONCURRENT_RUNS: ${RESEARCH_WORKER_CONCURRENCY:-2}
+      RESEARCH_QUEUE_POLL_SECONDS: ${RESEARCH_QUEUE_POLL_SECONDS:-5}
+      RESEARCH_STAGING_DIR: ${RESEARCH_STAGING_DIR:-/staging/research}
+      RESEARCH_STAGING_TTL_SECONDS: ${RESEARCH_STAGING_TTL_SECONDS:-86400}
+      RESEARCH_STALE_SECONDS: ${RESEARCH_STALE_SECONDS:-7200}
+      RESEARCH_REPUBLISH_INTERVAL_SECONDS: ${RESEARCH_REPUBLISH_INTERVAL_SECONDS:-300}
+      RESEARCH_REPUBLISH_MIN_AGE_SECONDS: ${RESEARCH_REPUBLISH_MIN_AGE_SECONDS:-900}
+    depends_on:
+      ai-scoring-service:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      market-data-service:
+        condition: service_started
+      screener-mcp:
+        condition: service_started
     networks:
       - smarttrade
 
@@ -509,8 +570,21 @@ services:
       - ${HOME}/.local/share/devin:/root/.local/share/devin:z
       # Smart-Trade workspace — read access for agent sessions
       - ..:/workspace:z
+      # Data-provider's staged packages (shared with ai-scoring-worker)
+      - research-staging:/staging/research
+      # Per-run quality audit — each settled run's dir (package.json,
+      # submission_schema.json, prompt.txt, transcript.log,
+      # devin_logs/, submission.json, meta.json) is moved to
+      # <RUN_AUDIT_DIR>/<label>-<run_id8>/ instead of deleted, so the
+      # exact data the agent consumed and every call it made stay
+      # inspectable on the host.
+      - ${RESEARCH_AGENT_AUDIT_DIR:-${HOME}/.local/share/smarttrade/research-audit}:/audit:z
     environment:
       AI_SCORING_URL: http://ai-scoring-service:8000
+      RESEARCH_STAGING_DIR: /staging/research
+      # Audit bundles land in /audit/runs (host dir bound above);
+      # empty disables archiving and restores delete-on-settle.
+      RUN_AUDIT_DIR: ${RESEARCH_AGENT_RUN_AUDIT_DIR:-/audit/runs}
       AUTH_URL: http://auth-service:8000
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RESEARCH_AGENT_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
@@ -685,4 +759,8 @@ volumes:
   redis-insight-data:
     driver: local
   screener-exports:
+    driver: local
+  # Research package handoff: ai-scoring-worker stages, research-agent
+  # consumes; per-run dirs are deleted once the run settles.
+  research-staging:
     driver: local
