@@ -176,7 +176,10 @@ services:
     container_name: screener-mcp
     build:
       context: ../../screener-mcp
-      dockerfile: Dockerfile.core
+      # Full image ([ai] extra): research-qa document analysis needs
+      # pdfplumber/chromadb/sentence-transformers — the core image
+      # 502s on those endpoints.
+      dockerfile: Dockerfile
     environment:
       MCP_TRANSPORT: streamable-http
       MCP_PORT: "8000"
@@ -515,7 +518,12 @@ services:
     tty: true
     environment:
       <<: *common-env
-      SERVICE_NAME: ai-scoring-worker
+      # Same service identity as the API — the worker is a second
+      # process of ai-scoring-service (same codebase/DB), and its
+      # service tokens must satisfy downstream RBAC policies that
+      # whitelist "ai-scoring-service". It never serves HTTP and never
+      # consumes events, so sharing the identity is safe.
+      SERVICE_NAME: ai-scoring-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_scoring_service
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
       PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
