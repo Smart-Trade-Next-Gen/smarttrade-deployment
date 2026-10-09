@@ -471,7 +471,7 @@ services:
       RESEARCH_MONITOR_PRIORITY: ${RESEARCH_MONITOR_PRIORITY:-10}
       # Comma-separated YYYY-MM-DD NSE holidays (IST) — operator-declared
       RESEARCH_MONITOR_HOLIDAYS: ${RESEARCH_MONITOR_HOLIDAYS:-}
-      RESEARCH_MONITOR_HOLDING_TYPE: ${RESEARCH_MONITOR_HOLDING_TYPE:-SETTLED}
+      RESEARCH_MONITOR_HOLDING_TYPES: ${RESEARCH_MONITOR_HOLDING_TYPES:-SETTLED,T1,MIXED}
       # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
       # executor lives in ai-scoring-worker. 'standalone' folds
       # everything back into this process (single-container dev).
