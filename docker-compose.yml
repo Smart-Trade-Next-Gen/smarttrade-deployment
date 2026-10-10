@@ -473,6 +473,11 @@ services:
       RESEARCH_MONITOR_WATCHLIST_CAP: ${RESEARCH_MONITOR_WATCHLIST_CAP:-50}
       RESEARCH_MONITOR_PRIORITY: ${RESEARCH_MONITOR_PRIORITY:-10}
       RESEARCH_MONITOR_HOLDING_TYPES: ${RESEARCH_MONITOR_HOLDING_TYPES:-SETTLED,T1,MIXED}
+      # RS engine — broker-bound daily percentile ratings. The engine
+      # loop lives in the worker; this role only runs it on POST
+      # /rs/refresh. Broker session resolves via the ACTING_* account.
+      RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
+      RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
       # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
       # executor lives in ai-scoring-worker. 'standalone' folds
       # everything back into this process (single-container dev).
@@ -533,6 +538,12 @@ services:
       ACTING_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
       ACTING_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
       RESEARCH_RUNTIME_ROLE: worker
+      # Background loops this process owns: EarningsWatcher (universe
+      # announcements sweep) + RsEngine (daily NIFTY-relative
+      # percentiles). Broker-bound — the ACTING_* account supplies the
+      # MDS history/download credentials.
+      RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
+      RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
       RESEARCH_MAX_CONCURRENT_RUNS: ${RESEARCH_WORKER_CONCURRENCY:-2}
       RESEARCH_QUEUE_POLL_SECONDS: ${RESEARCH_QUEUE_POLL_SECONDS:-5}
       RESEARCH_STAGING_DIR: ${RESEARCH_STAGING_DIR:-/staging/research}
