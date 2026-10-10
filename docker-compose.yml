@@ -462,15 +462,16 @@ services:
       # runs parked > MIN_AGE so lost triggers self-heal
       RESEARCH_REPUBLISH_INTERVAL_SECONDS: ${RESEARCH_REPUBLISH_INTERVAL_SECONDS:-300}
       RESEARCH_REPUBLISH_MIN_AGE_SECONDS: ${RESEARCH_REPUBLISH_MIN_AGE_SECONDS:-900}
-      # Periodic watchlist/holdings research — market-hours gated;
-      # caps bound the per-tick spend (each run spawns an agent session)
-      RESEARCH_MONITOR_ENABLED: ${RESEARCH_MONITOR_ENABLED:-true}
-      RESEARCH_MONITOR_INTERVAL_MINUTES: ${RESEARCH_MONITOR_INTERVAL_MINUTES:-60}
+      # Alert-driven re-research — completed watchlist/holdings runs
+      # sync research-derived price alerts (alerts.sync); a fired
+      # research-sourced PRICE_ABOVE/PRICE_BELOW trigger enqueues a
+      # recheck run on this service (alerts.triggered consumer). The
+      # min-minutes cooldown bounds the spend per instrument (each
+      # run spawns an agent session).
+      RESEARCH_ALERT_RECHECK_ENABLED: ${RESEARCH_ALERT_RECHECK_ENABLED:-true}
+      RESEARCH_ALERT_RECHECK_MIN_MINUTES: ${RESEARCH_ALERT_RECHECK_MIN_MINUTES:-240}
       RESEARCH_MONITOR_WATCHLIST_CAP: ${RESEARCH_MONITOR_WATCHLIST_CAP:-50}
-      RESEARCH_MONITOR_HOLDINGS_CAP: ${RESEARCH_MONITOR_HOLDINGS_CAP:-25}
       RESEARCH_MONITOR_PRIORITY: ${RESEARCH_MONITOR_PRIORITY:-10}
-      # Comma-separated YYYY-MM-DD NSE holidays (IST) — operator-declared
-      RESEARCH_MONITOR_HOLIDAYS: ${RESEARCH_MONITOR_HOLIDAYS:-}
       RESEARCH_MONITOR_HOLDING_TYPES: ${RESEARCH_MONITOR_HOLDING_TYPES:-SETTLED,T1,MIXED}
       # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
       # executor lives in ai-scoring-worker. 'standalone' folds
