@@ -481,6 +481,11 @@ services:
       # /rs/refresh. Broker session resolves via the ACTING_* account.
       RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
       RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
+      # Nightly pipeline — cron calls POST /api/v1/research/nightly.
+      # NIGHTLY_SCREEN_ID is the Screener saved-screen id for the
+      # "Growth" import; unset disables the endpoint with a 422.
+      NIGHTLY_ENABLED: ${NIGHTLY_ENABLED:-true}
+      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-}
       # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
       # executor lives in ai-scoring-worker. 'standalone' folds
       # everything back into this process (single-container dev).
@@ -547,6 +552,11 @@ services:
       # MDS history/download credentials.
       RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
       RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
+      # Live-returns overlay — leases quotes for the rated universe
+      # (screened + watchlist + holdings) off market.quote and serves
+      # intraday 1D/1W/1M from the research:live_returns Redis hash.
+      LIVE_RETURNS_ENABLED: ${LIVE_RETURNS_ENABLED:-true}
+      LIVE_RETURNS_LEASE_TTL_SECONDS: ${LIVE_RETURNS_LEASE_TTL_SECONDS:-120}
       RESEARCH_MAX_CONCURRENT_RUNS: ${RESEARCH_WORKER_CONCURRENCY:-2}
       RESEARCH_QUEUE_POLL_SECONDS: ${RESEARCH_QUEUE_POLL_SECONDS:-5}
       RESEARCH_STAGING_DIR: ${RESEARCH_STAGING_DIR:-/staging/research}
