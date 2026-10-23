@@ -481,11 +481,27 @@ services:
       # /rs/refresh. Broker session resolves via the ACTING_* account.
       RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
       RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
-      # Nightly pipeline — cron calls POST /api/v1/research/nightly.
-      # NIGHTLY_SCREEN_ID is the Screener saved-screen id for the
-      # "Growth" import; unset disables the endpoint with a 422.
+      # Nightly pipeline — the in-service scheduler (worker role)
+      # claims the run at the persisted schedule; POST
+      # /api/v1/research/nightly stays the manual/legacy entrypoint
+      # (?force=true reruns a completed day, never interrupts a live
+      # run). NIGHTLY_SCREEN_ID is the Screener saved-screen id for
+      # the "Growth" import; unset disables the endpoint with a 422.
       NIGHTLY_ENABLED: ${NIGHTLY_ENABLED:-true}
       NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-}
+      NIGHTLY_IMPORT_TIMEOUT_SECONDS: ${NIGHTLY_IMPORT_TIMEOUT_SECONDS:-600}
+      # Freshness skip: skip a company whose latest completed GROWTH
+      # run is within this window unless a configured
+      # earnings-calendar event or newly-seen filing landed after it.
+      NIGHTLY_GROWTH_FRESHNESS_DAYS: ${NIGHTLY_GROWTH_FRESHNESS_DAYS:-7}
+      NIGHTLY_INVALIDATING_EVENT_TYPES: ${NIGHTLY_INVALIDATING_EVENT_TYPES:-RESULTS_DECLARED,BOARD_MEETING,DIVIDEND,AGM,OTHER_MATERIAL}
+      NIGHTLY_FILINGS_INVALIDATE: ${NIGHTLY_FILINGS_INVALIDATE:-true}
+      # Scheduler poll + the UI-editable schedule's initial seed
+      # (the DB row wins once written — these only matter pre-seed).
+      NIGHTLY_SCHEDULER_TICK_SECONDS: ${NIGHTLY_SCHEDULER_TICK_SECONDS:-60}
+      NIGHTLY_SCHEDULE_SEED_ENABLED: ${NIGHTLY_SCHEDULE_SEED_ENABLED:-false}
+      NIGHTLY_SCHEDULE_SEED_TIME: ${NIGHTLY_SCHEDULE_SEED_TIME:-21:30}
+      NIGHTLY_SCHEDULE_SEED_TZ: ${NIGHTLY_SCHEDULE_SEED_TZ:-Asia/Kolkata}
       # Two-stage pipeline: 'api' = REST + monitor only; the queued-run
       # executor lives in ai-scoring-worker. 'standalone' folds
       # everything back into this process (single-container dev).
@@ -547,9 +563,22 @@ services:
       ACTING_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
       RESEARCH_RUNTIME_ROLE: worker
       # Background loops this process owns: EarningsWatcher (universe
-      # announcements sweep) + RsEngine (daily NIFTY-relative
-      # percentiles). Broker-bound — the ACTING_* account supplies the
-      # MDS history/download credentials.
+      # announcements sweep), RsEngine (daily NIFTY-relative
+      # percentiles) and the NightlyScheduler — the DB-persisted
+      # schedule (GET/PUT /research/nightly/schedule) drives the auto
+      # run; the same per-UTC-date claim keeps it single-flight vs
+      # manual POST /nightly triggers. Broker-bound — the ACTING_*
+      # account supplies the MDS history/download credentials.
+      NIGHTLY_ENABLED: ${NIGHTLY_ENABLED:-true}
+      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-}
+      NIGHTLY_IMPORT_TIMEOUT_SECONDS: ${NIGHTLY_IMPORT_TIMEOUT_SECONDS:-600}
+      NIGHTLY_GROWTH_FRESHNESS_DAYS: ${NIGHTLY_GROWTH_FRESHNESS_DAYS:-7}
+      NIGHTLY_INVALIDATING_EVENT_TYPES: ${NIGHTLY_INVALIDATING_EVENT_TYPES:-RESULTS_DECLARED,BOARD_MEETING,DIVIDEND,AGM,OTHER_MATERIAL}
+      NIGHTLY_FILINGS_INVALIDATE: ${NIGHTLY_FILINGS_INVALIDATE:-true}
+      NIGHTLY_SCHEDULER_TICK_SECONDS: ${NIGHTLY_SCHEDULER_TICK_SECONDS:-60}
+      NIGHTLY_SCHEDULE_SEED_ENABLED: ${NIGHTLY_SCHEDULE_SEED_ENABLED:-false}
+      NIGHTLY_SCHEDULE_SEED_TIME: ${NIGHTLY_SCHEDULE_SEED_TIME:-21:30}
+      NIGHTLY_SCHEDULE_SEED_TZ: ${NIGHTLY_SCHEDULE_SEED_TZ:-Asia/Kolkata}
       RS_ENGINE_ENABLED: ${RS_ENGINE_ENABLED:-true}
       RS_BROKER_ID: ${RS_BROKER_ID:-fyers}
       # Live-returns overlay — leases quotes for the rated universe
@@ -560,6 +589,9 @@ services:
       RESEARCH_MAX_CONCURRENT_RUNS: ${RESEARCH_WORKER_CONCURRENCY:-2}
       RESEARCH_QUEUE_POLL_SECONDS: ${RESEARCH_QUEUE_POLL_SECONDS:-5}
       RESEARCH_STAGING_DIR: ${RESEARCH_STAGING_DIR:-/staging/research}
+      # Startup classification backfill — cap on live screener lookups
+      # for runs whose stored artifacts predate classification fields.
+      RESEARCH_CLASSIFICATION_LIVE_LIMIT: ${RESEARCH_CLASSIFICATION_LIVE_LIMIT:-25}
       RESEARCH_STAGING_TTL_SECONDS: ${RESEARCH_STAGING_TTL_SECONDS:-86400}
       RESEARCH_STALE_SECONDS: ${RESEARCH_STALE_SECONDS:-7200}
       RESEARCH_REPUBLISH_INTERVAL_SECONDS: ${RESEARCH_REPUBLISH_INTERVAL_SECONDS:-300}
