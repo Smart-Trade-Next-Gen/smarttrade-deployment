@@ -485,10 +485,16 @@ services:
       # claims the run at the persisted schedule; POST
       # /api/v1/research/nightly stays the manual/legacy entrypoint
       # (?force=true reruns a completed day, never interrupts a live
-      # run). NIGHTLY_SCREEN_ID is the Screener saved-screen id for
-      # the "Growth" import; unset disables the endpoint with a 422.
+      # run). NIGHTLY_SCREEN_ID seeds the nightly screen assignment —
+      # the saved screen whose latest-import members (intersected with
+      # the master universe) form the screened cohort. After first
+      # seed the screening_settings row (PUT
+      # /research/screening/settings) is authoritative.
+      # SUGGESTION_SCREEN_ID seeds the screen bounding research
+      # suggestions — same seed-once semantics.
       NIGHTLY_ENABLED: ${NIGHTLY_ENABLED:-true}
-      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-}
+      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-4051274}
+      SUGGESTION_SCREEN_ID: ${SUGGESTION_SCREEN_ID:-4018144}
       NIGHTLY_IMPORT_TIMEOUT_SECONDS: ${NIGHTLY_IMPORT_TIMEOUT_SECONDS:-600}
       # Freshness skip: skip a company whose latest completed GROWTH
       # run is within this window unless a configured
@@ -570,7 +576,8 @@ services:
       # manual POST /nightly triggers. Broker-bound — the ACTING_*
       # account supplies the MDS history/download credentials.
       NIGHTLY_ENABLED: ${NIGHTLY_ENABLED:-true}
-      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-}
+      NIGHTLY_SCREEN_ID: ${NIGHTLY_SCREEN_ID:-4051274}
+      SUGGESTION_SCREEN_ID: ${SUGGESTION_SCREEN_ID:-4018144}
       NIGHTLY_IMPORT_TIMEOUT_SECONDS: ${NIGHTLY_IMPORT_TIMEOUT_SECONDS:-600}
       NIGHTLY_GROWTH_FRESHNESS_DAYS: ${NIGHTLY_GROWTH_FRESHNESS_DAYS:-7}
       NIGHTLY_INVALIDATING_EVENT_TYPES: ${NIGHTLY_INVALIDATING_EVENT_TYPES:-RESULTS_DECLARED,BOARD_MEETING,DIVIDEND,AGM,OTHER_MATERIAL}
