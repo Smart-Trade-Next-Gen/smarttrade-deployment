@@ -680,6 +680,15 @@ services:
       RUN_MAX_ATTEMPTS: ${RESEARCH_AGENT_MAX_ATTEMPTS:-2}
       RUN_RETRY_COOLDOWN_SECONDS: ${RESEARCH_AGENT_RETRY_COOLDOWN_SECONDS:-3600}
       RUN_MAX_PARALLEL: ${RESEARCH_AGENT_MAX_PARALLEL:-4}
+      # Retryable agent errors (rate limits etc.): dispatch-hold window
+      # + per-trigger cap on refunded dispatch attempts.
+      RUN_MAX_INFRA_REFUNDS: ${RESEARCH_AGENT_MAX_INFRA_REFUNDS:-5}
+      AGENT_ERROR_HOLD_DEFAULT_SECONDS: ${RESEARCH_AGENT_HOLD_DEFAULT_SECONDS:-60}
+      AGENT_ERROR_HOLD_MAX_SECONDS: ${RESEARCH_AGENT_HOLD_MAX_SECONDS:-600}
+      # Devin CLI session store — watcher-observed token usage is read
+      # here and POSTed to ai-scoring's agent-sessions endpoint. The
+      # default resolves inside the mounted ~/.local/share/devin volume.
+      DEVIN_SESSIONS_DB: ${DEVIN_SESSIONS_DB:-/root/.local/share/devin/cli/sessions.db}
       DEVIN_PERMISSION_MODE: ${DEVIN_PERMISSION_MODE:-dangerous}
       # Effort is encoded in the model name (swe-2-low/-high/-max)
       DEVIN_MODEL: ${DEVIN_MODEL:-swe-2-high}

@@ -94,6 +94,19 @@ concurrent Devin sessions; N workers multiply credit burn by ~N),
 `DEVIN_MODEL` (`swe-2-high` — reasoning effort is encoded in the model
 name: `swe-2-low`/`swe-2-high`/`swe-2-max`).
 
+Retryable agent errors (rate limits, provider outages): when a session
+dies on a `cognition.ai/retryable` error, the watcher holds all
+dispatching until the provider's reset window passes
+(`RESEARCH_AGENT_HOLD_DEFAULT_SECONDS`/`RESEARCH_AGENT_HOLD_MAX_SECONDS`
+bound the hold) and refunds the burned dispatch attempt, up to
+`RESEARCH_AGENT_MAX_INFRA_REFUNDS` (5) times per trigger.
+
+Usage telemetry: after each session, the watcher reads per-request
+token counts from the mounted Devin session store
+(`DEVIN_SESSIONS_DB`, default the `~/.local/share/devin` volume) and
+POSTs them to ai-scoring's `/research/agent-sessions` endpoint —
+queryable per run and per Q&A question.
+
 ## Per-service databases
 
 Each backend service owns its own database. `init-db.sh` creates them on

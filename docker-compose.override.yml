@@ -1,0 +1,22 @@
+# Dev-evaluation override — Phase 3 cross-run research memory.
+# NOT committed to git: enables the full memory layer in the local dev
+# stack only. Production defaults stay off. Remove this file (or the
+# env entries) to restore flag-off behavior.
+# Decision: flag-enabled development evaluation; cohort accrues
+# organically via existing research traffic.
+services:
+  ai-scoring-service:
+    environment:
+      # API role — extraction/thesis pass runs here on submit_analysis.
+      RESEARCH_MEMORY_ENABLED: "true"
+      RESEARCH_MEMORY_RETRIEVAL_ENABLED: "true"
+      RESEARCH_MEMORY_EXTRACTION_ENABLED: "true"
+      RESEARCH_MEMORY_ADAPTIVE_PLANNING_ENABLED: "true"
+  ai-scoring-worker:
+    environment:
+      # Worker role — retrieval/prior-knowledge staging runs here in
+      # execute_run.
+      RESEARCH_MEMORY_ENABLED: "true"
+      RESEARCH_MEMORY_RETRIEVAL_ENABLED: "true"
+      RESEARCH_MEMORY_EXTRACTION_ENABLED: "true"
+      RESEARCH_MEMORY_ADAPTIVE_PLANNING_ENABLED: "true"
