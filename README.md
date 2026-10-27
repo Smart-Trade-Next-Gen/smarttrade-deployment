@@ -85,14 +85,22 @@ Required in `.env`:
   `~/.local/share/devin/credentials.toml` is shared into the container).
 - `DEVIN_EXT_DIR` if the Devin CLI extension dir differs from the
   default mount path.
+- `RESEARCH_AGENT_CATALOG_TOKEN` — required shared random bearer secret
+  for the internal model catalog endpoint. Set the same value for the
+  research-agent and ai-scoring-service containers; for example, generate
+  one with `openssl rand -hex 32`. The endpoint is not published to the
+  host.
 
 Tunables: `RESEARCH_AGENT_RECLAIM_SECONDS` (300), `RESEARCH_AGENT_BLOCK_MS`
 (30000), `RESEARCH_AGENT_TIMEOUT_SECONDS` (3600),
 `RESEARCH_AGENT_MAX_ATTEMPTS` (2), `RESEARCH_AGENT_MAX_PARALLEL` (4 —
 concurrent Devin sessions; N workers multiply credit burn by ~N),
-`DEVIN_PERMISSION_MODE` (dangerous — required for unattended runs),
-`DEVIN_MODEL` (`swe-2-high` — reasoning effort is encoded in the model
-name: `swe-2-low`/`swe-2-high`/`swe-2-max`).
+`DEVIN_PERMISSION_MODE` (dangerous — required for unattended runs).
+
+Available Devin models are loaded from the authenticated CLI and cached
+briefly by research-agent. Set the platform-wide default in the Research
+page; individual and screen/batch research starts can override it. The
+saved default applies to automated research dispatches too.
 
 Retryable agent errors (rate limits, provider outages): when a session
 dies on a `cognition.ai/retryable` error, the watcher holds all

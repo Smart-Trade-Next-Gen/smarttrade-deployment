@@ -464,6 +464,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/smarttrade_ai_scoring_service
       MARKET_DATA_SERVICE_URL: http://market-data-service:8000
       PORTFOLIO_SERVICE_URL: http://portfolio-service:8000
+      RESEARCH_AGENT_CATALOG_URL: http://research-agent:8018
+      RESEARCH_AGENT_CATALOG_TOKEN: ${RESEARCH_AGENT_CATALOG_TOKEN:-}
       SCREENER_MCP_URL: ${SCREENER_MCP_URL:-http://screener-mcp:8000}
       SCREENER_MCP_TOKEN: ${MCP_AUTH_TOKEN:-}
       # Pipeline acting identity: pipeline/batch runs resolve broker
@@ -674,6 +676,8 @@ services:
       RESEARCH_AGENT_USERNAME: ${RESEARCH_AGENT_USERNAME:-}
       RESEARCH_AGENT_PASSWORD: ${RESEARCH_AGENT_PASSWORD:-}
       RESEARCH_AGENT_TOKEN: ${RESEARCH_AGENT_TOKEN:-}
+      RESEARCH_AGENT_CATALOG_TOKEN: ${RESEARCH_AGENT_CATALOG_TOKEN:-}
+      RESEARCH_AGENT_CATALOG_PORT: 8018
       RECLAIM_INTERVAL_SECONDS: ${RESEARCH_AGENT_RECLAIM_SECONDS:-300}
       STREAM_BLOCK_MS: ${RESEARCH_AGENT_BLOCK_MS:-30000}
       RUN_TIMEOUT_SECONDS: ${RESEARCH_AGENT_TIMEOUT_SECONDS:-3600}
@@ -690,8 +694,6 @@ services:
       # default resolves inside the mounted ~/.local/share/devin volume.
       DEVIN_SESSIONS_DB: ${DEVIN_SESSIONS_DB:-/root/.local/share/devin/cli/sessions.db}
       DEVIN_PERMISSION_MODE: ${DEVIN_PERMISSION_MODE:-dangerous}
-      # Effort is encoded in the model name (swe-2-low/-high/-max)
-      DEVIN_MODEL: ${DEVIN_MODEL:-swe-2-high}
       # Devin auth — either set WINDSURF_API_KEY in .env, or run
       # `devin auth login` once on the host (credentials.toml is
       # mounted through ~/.local/share/devin)
